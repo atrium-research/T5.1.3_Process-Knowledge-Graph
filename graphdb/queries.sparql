@@ -1,1 +1,205 @@
+# SPARQL QUERIES FOR ATRIUM T5.1.3
 
+
+# 1. Which methods are used by authors the most?
+# Return the top 20, along with their wikidata url and description.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https:so://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT (count(?person) as ?NumUses) ?method ?methodName ?wikidataURL WHERE {
+    ?person rdf:type so:Person .
+    ?person so:usesMethod ?method .
+    ?method rdfs:label ?methodName .
+    ?method so:wikidata_url ?wikidataURL .
+}
+GROUP BY ?method ?methodName ?wikidataURL
+ORDER BY DESC(?NumUses)
+LIMIT 20;
+
+
+# 2. Create a list of the methods used by scholars with at least one affiliation and display who is using which method.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT (count(?person) as ?NumUses) ?methodName (group_concat(distinct ?fullname; separator=", ") AS ?Scholars) WHERE {
+    ?person rdf:type so:Person .
+    ?person so:isAffiliatedTo ?org .
+    ?person so:usesMethod ?method .
+    ?method rdfs:label ?methodName .
+	?person rdfs:label ?fullname 
+}
+GROUP BY ?methodName 
+ORDER BY DESC(?NumUses);
+
+# 3. Find the articles that were published in 2016 and were referring to activities concerning “dating”. 
+ 
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT ?title (count(?activity) as ?NumActivity) WHERE {
+    ?article rdf:type so:Article .
+    ?article so:publicationYear 2016 .
+    ?person so:isAuthorOf ?article .
+    ?article rdfs:label ?title .
+    ?person so:participatesIn ?activity .
+    ?activity rdfs:label ?label .
+    FILTER(regex(?label, "dating" ))
+}
+GROUP BY ?title;
+
+# 4. Which methods are associated with goals concerning “dating”? NO RESULTS
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT * WHERE {
+    ?method rdf:type so:Method .
+    ?activity so:employs ?method .
+    ?activity so:hasObjective ?goal .
+    ?goal rdfs:label ?label .
+    FILTER(regex(?label, "dating" ) ||  regex(?label, "date" ))
+}
+ORDER BY DESC(?NumActivity);
+
+# 5. Find the methods that are used by researchers who participate in activities with objective related to “environmental reconstruction”.
+# v1. with person --> NO RESULTS
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT * WHERE {
+    ?method rdf:type so:Method . 
+    ?person so:usesMethod ?method .
+    ?method rdfs:label ?methodName .
+    ?person so:participatesIn ?activity .
+    ?activity so:hasObjective ?goal .
+    ?goal rdfs:label ?label .
+    FILTER(regex(?label, "reconstruct" ))  
+};
+
+#Loose version 2 --> NO RESULTS
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT * WHERE {
+    ?method rdf:type so:Method . 
+    ?activity so:employs ?method .
+    ?activity so:hasObjective ?goal .
+    ?goal rdfs:label ?label .
+    FILTER(regex(?label, "reconstruct" )) 
+};
+
+#v3: ignore how Method and Goal are linked --> 562 results
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT ?goallabel ?methodName WHERE {
+    ?goal rdf:type so:Goal .
+    ?any ?p ?goal .
+    ?goal rdfs:label ?goallabel .
+    ?any ?linktomethod ?method .
+    ?method rdf:type so:Method .
+    ?method rdfs:label ?methodName .
+    FILTER(regex(?goallabel, "reconstruct" ) && regex(?goallabel, "vegetation" ) || regex(?goallabel, "reconstruct" ) && regex(?goallabel, "environment" )) 
+};
+
+# 6. Create a table with scholars and the methods that they are using, starting from the scholars that use the most methods.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT ?fullname (count(distinct ?method) as ?Total)  (group_concat(distinct ?methodName; separator=", ") AS ?methods)  WHERE {
+    ?person rdf:type so:Person .
+    ?person rdfs:label ?fullname .
+    ?person so:usesMethod ?method .
+    ?method rdfs:label ?methodName .
+}
+GROUP BY ?fullname 
+ORDER BY DESC(?Total);
+
+#7. Select scholars who are affiliated with an organization and calculate how many publications they have.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT ?fullname (count(distinct ?work) as ?work)   WHERE {
+    ?person rdf:type so:Person .
+    ?person so:isAffiliatedTo ?org .
+    ?person rdfs:label ?fullname .
+    ?person so:isAuthorOf ?work .
+}
+GROUP BY ?fullname 
+ORDER BY DESC(?work);
+
+#8. Display all publishers ordered by popularity (i.e. how many articles are published by each).
+
+#NO PUBLISHER INFO AVAILABLE
+
+#9. Find all researchers that have authored articles related to “Environmental Studies”.
+#NO TOPIC INFO IN KG
+#10. Find the most popular research topics of the publisher with the most publications.
+#NO TOPIC INFO IN KG
+
+#11. Find which Journals are preferred from researchers that are affiliated to Yale University
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT ?journalName (count(?person) as ?researchers)  WHERE {
+    ?person rdf:type so:Person .
+    ?person so:isAffiliatedTo ?org .
+    ?org rdfs:label "Yale University" .
+    ?person so:isAuthorOf ?article .
+    ?article so:isMemberOf ?journal .
+    ?journal rdfs:label ?journalName  
+}
+GROUP BY ?journalName
+ORDER BY DESC (?researchers);
+
+
+#12. Display the semantic path that associates Aristotle University of Thessaloniki with the “coring” method
+ 
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX path: <http://www.ontotext.com/path#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX dbr: <http://dbpedia.org/resource/>
+
+CONSTRUCT {
+    ?start ?edgeLabel ?end
+}
+WHERE {
+    ?src rdf:type so:Organization .
+    ?src rdfs:label "Aristotle University of Thessaloniki" .
+    ?dst rdf:type so:Method .
+    ?dst rdfs:label "coring" .
+    SERVICE path:search {
+        [] path:findPath path:shortestPath ;
+           path:sourceNode ?src ;
+           path:destinationNode ?dst ;
+           path:pathIndex ?pathIndex ;
+           path:resultBindingIndex ?edgeIndex ;
+           path:resultBinding ?edge ;
+           path:bidirectional true ;
+           path:startNode ?start ;
+		   path:propertyBinding ?edgeLabel ;
+           path:endNode ?end ;
+           .
+    }
+};
+
+#13. Find all scholars that participate in activities employing the method “Pollen Studies” and display their name and ORCID number.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX so: <https://scholarlyontology.aueb.gr/resources/so_schema/so_jstor_1.0#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT ?fullname ?orcid WHERE {
+    ?person rdf:type so:Person .
+    ?person so:participatesIn ?activity .
+    ?activity so:employs ?method .
+    ?method rdfs:label "Pollen studies" .
+    ?person rdfs:label ?fullname .
+    ?person so:orcid ?orcid .
+};
