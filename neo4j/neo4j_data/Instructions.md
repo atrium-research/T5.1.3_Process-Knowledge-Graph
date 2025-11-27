@@ -9,7 +9,7 @@
 # 🪟 Windows Installation Guide
 
 ## 1. Download Required Files
-- Download the `neo4j.dump` file from this repository.
+- Download the `ATRIUM_jstor_data.dump` file from this repository.
 - Download the **Neo4j Community Edition `.zip`** from:  
   👉 https://neo4j.com/deployment-center/?gdb-selfmanaged&community
 
@@ -21,7 +21,7 @@
 Run:
 
 ```bash
-neo4j-admin database load neo4j --from-path=/path/to/neo4j.dump --overwrite-destination=true
+neo4j-admin database load neo4j --from-path=/path/to/ATRIUM_jstor_data.dump --overwrite-destination=true
 ```
 
 ## 4. Start Neo4j
@@ -44,7 +44,7 @@ https://neo4j.com/docs/operations-manual/current/installation/windows/
 # 🍏🐧 macOS / Linux Installation Guide
 
 ## 1. Download Required Files
-- Download the `neo4j.dump` file from this repository.
+- Download the `ATRIUM_jstor_data.dump` file from this repository.
 - Download the **Neo4j Community Edition `.tar` file** from:  
   👉 https://neo4j.com/deployment-center/?gdb-selfmanaged&community
 
@@ -59,7 +59,7 @@ export NEO4J_HOME=/path/to/<NEO4J_HOME>
 Run:
 
 ```bash
-neo4j-admin database load neo4j --from-path=/path/to/neo4j.dump --overwrite-destination=true
+neo4j-admin database load neo4j --from-path=/path/to/ATRIUM_jstor_data.dump --overwrite-destination=true
 ```
 
 ## 4. Start Neo4j
