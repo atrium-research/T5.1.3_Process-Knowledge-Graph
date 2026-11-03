@@ -1,0 +1,181 @@
+name,description,query,id,parentId,isFolder,isProtected
+Drafts,,,0,,true,true
+Method,,,1,,true,false
+"Return the top 20, along with their names,wikidata urls and descriptions.",,"MATCH (p:Person)-[r:USES_METHOD]->(m:Method)
+RETURN
+  COUNT(r) AS NumUses,
+  m.name AS Method,
+  m.wikidata_url AS WikidataURL,
+  m.description AS MethodDescription
+ORDER BY NumUses DESC
+LIMIT 20",2,1,false,false
+"Which topics are most commonly covered in articles written by researchers who use radiocarbon dating, and what is the count of such articles per topic?",,"MATCH (m:Method)
+WHERE m.name = 'radiocarbon dating'
+WITH m
+MATCH (p:Person)-[:USES_METHOD]->(m)
+WITH p, m
+MATCH (t:Topic)-[r:IS_TOPIC_OF]->(art:Article)<-[:IS_AUTHOR_OF]-(p)
+RETURN t.name AS Topics, COUNT(r) AS numRD
+ORDER BY numRD DESC",3,1,false,false
+"Which research methods are most commonly used by authors who write articles in the topic ‘Archaeology,’ and how many articles are associated with each method?",,"MATCH (p:Person)-[:USES_METHOD]->(m:Method)
+MATCH
+  (t:Topic {name: 'Archaeology'})-[:IS_TOPIC_OF]->
+  (art:Article)<-[:IS_AUTHOR_OF]-
+  (p)
+RETURN m.name AS Method, COUNT(*) AS NumUsesInArchaeology
+ORDER BY NumUsesInArchaeology DESC",4,1,false,false
+"Regarding methods containing 'AMS', display all the information. MATCH (m:Method) WHERE m.name CONTAINS 'AMS' AND m.qid IS NOT NULL  AND m.description IS NOT NULL  AND m.wikipedia_url IS NOT NULL  AND m.wikidata_url IS NOT NULL ] AND m.aliases IS NOT NULL",,"MATCH (m:Method)
+WHERE
+  m.name CONTAINS 'AMS' AND
+  m.qid IS NOT NULL AND
+  m.description IS NOT NULL AND
+  m.wikipedia_url IS NOT NULL AND
+  m.wikidata_url IS NOT NULL AND
+  m.aliases IS NOT NULL AND
+  size(m.aliases) > 0 // to exclude empty lists
+RETURN
+  m.name AS MethodName,
+  m.qid AS QID,
+  m.description AS Description,
+  m.wikipedia_url AS WikipediaURL,
+  m.wikidata_url AS WikidataURL,
+  m.aliases AS Aliases",5,1,false,false
+Find all methods represented in articles published in 2016.,,"MATCH (art:Article)
+WHERE art.publication_year = 2016
+WITH art
+MATCH (m:Method)<-[:USES_METHOD]-(p:Person)-[:IS_AUTHOR_OF]->(art)
+WITH art, COLLECT(DISTINCT m.name) AS Methods
+RETURN art.title AS Title, size(Methods) AS NumMethods, Methods
+ORDER BY size(Methods) DESC",6,1,false,false
+Activity,,,7,,true,false
+Find the articles that were published in 2016 and were referring to activities concerning “dating”.,,"MATCH
+  (act:Activity)-[:HAS_SENTENCE_CONTEXT]->
+  (s:Sentence)-[:IS_PART_OF]->
+  (art:Article)
+WHERE
+  toLower(act.textual_span) CONTAINS 'dating' AND art.publication_year = 2016
+RETURN art.title AS ArticleTitle, COUNT(act) AS NumActivities
+ORDER BY NumActivities DESC",8,7,false,false
+"Regarding the top 10 activites that appear more, return authors who have participated in them.",,"MATCH (p:Person)-[r:PARTICIPATES_IN]->(a:Activity)
+WITH a, COUNT(r) AS NumOfAuthors, COLLECT(p.full_name) AS Authors
+RETURN a.textual_span AS Activity, NumOfAuthors, Authors
+ORDER BY Authors DESC
+LIMIT 10",9,7,false,false
+Find authors using the same methods with 'Robyn Pickering' and also the number of activities that they have participated in.,,"MATCH (p:Person {full_name: 'Robyn Pickering'})-[:USES_METHOD]->(m:Method)
+WITH p, COLLECT(DISTINCT m) AS Methods
+UNWIND Methods AS x
+MATCH (per:Person)-[:USES_METHOD]-(x)
+WITH per, x
+MATCH (per)-[:PARTICIPATES_IN]->(a:Activity)
+RETURN per.full_name AS Authors, x.name AS Methods, COUNT(a) AS NumActivities",10,7,false,false
+"How many times are activities using verbs like 'use', 'analyse' or 'measure'?",,"MATCH (a:Activity)
+WHERE a.textual_span CONTAINS 'use'
+WITH collect(a) AS verb1
+MATCH (a:Activity)
+WHERE a.textual_span CONTAINS 'measure'
+WITH verb1, collect(a) AS verb2
+MATCH (a:Activity)
+WHERE a.textual_span CONTAINS 'analyse'
+WITH verb1, verb2, collect(a) AS verb3
+RETURN size(verb1) AS Use, size(verb3) AS Analyse, size(verb2) AS Measure",11,7,false,false
+Goal,,,12,,true,false
+"Retrieve all methods that are used by activities which have objectives related to ""analysis"" or ""date"".",,"MATCH (g:Goal)<-[:HAS_OBJECTIVE]-(a:Activity)-[:EMPLOYS]->(m:Method)
+WHERE g.textual_span CONTAINS 'analysis' OR g.textual_span CONTAINS 'date'
+RETURN DISTINCT m.name AS MethodName
+ORDER BY m.name",13,12,false,false
+"Retrieve all authors who participate in activities employing specific methods and whose objectives relate to ""reconstruct"" or ""vegetation"" or ""enviroment"". For each author, show the methods used and the corresponding goal.",,"MATCH (p:Person)-[:PARTICIPATES_IN]->(a:Activity)-[:EMPLOYS]->(m:Method)
+MATCH (a)-[:HAS_OBJECTIVE]->(g:Goal)
+WHERE
+  g.textual_span CONTAINS 'reconstruct' AND
+  (g.textual_span CONTAINS 'environment' OR
+    g.textual_span CONTAINS 'vegetation')
+RETURN DISTINCT
+  p.full_name AS Author,
+  COLLECT(DISTINCT m.name) AS Methods,
+  g.textual_span AS Goal
+ORDER BY Author",14,12,false,false
+Find authors the use methods for objectives that are related to 'comparison'.,,"MATCH (a:Activity)-[r:HAS_OBJECTIVE]->(g:Goal)
+WHERE g.textual_span CONTAINS 'compare'
+WITH a, g
+MATCH (a)-[:EMPLOYS]->(m:Method)
+WITH a, g, m
+MATCH (p:Person)-[:USES_METHOD]-(m)
+WITH m, collect(p.full_name) AS Authors
+RETURN DISTINCT m.name AS Methods, Authors
+ORDER BY Methods",15,12,false,false
+Person,,,16,,true,false
+"Retrieve all scholars (authors), their affiliated organizations, and the number of distinct articles each authors has authored. Then, list them in descending order of their publication count.",,"MATCH (p:Person)-[:IS_AFFILIATED_TO]->(org:Organization)
+MATCH (p)-[:IS_AUTHOR_OF]->(art:Article)
+RETURN
+  p.full_name AS Scholar,
+  org.name AS Organization,
+  COUNT(DISTINCT art) AS Publications
+ORDER BY Publications DESC",17,16,false,false
+"Create a table with authors and the methods that they are using, starting from the scholars that use the most methods.",,"MATCH (p:Person)-[:USES_METHOD]-(m:Method)
+RETURN p.full_name AS Name, COUNT(*) AS Total, COLLECT(m.name) AS Methods
+ORDER BY Total DESC",18,16,false,false
+Select authors who are affiliated with an organization and calculate how many publications they have.,,"MATCH (p:Person)-[:IS_AUTHOR_OF]->(art:Article)
+RETURN p.full_name AS Author, COUNT(DISTINCT art) AS NumWorks
+ORDER BY NumWorks DESC
+LIMIT 100",19,16,false,false
+Display all publishers ordered by how many articles are published by each.,,"MATCH (art:Article)
+WITH COLLECT(DISTINCT art.publisher) AS pub, art
+UNWIND pub AS x
+WITH x, COUNT(art) AS NumArticles
+RETURN x AS Publisher, NumArticles
+ORDER BY NumArticles DESC",20,16,false,false
+Topic,,,21,,true,false
+"Find all researchers that have authored articles related to ""Enviromental Studies"".",,"MATCH (t:Topic {name: 'Environmental Studies'})-[:IS_TOPIC_OF]->(art:Article)
+WITH art
+MATCH (p:Person)-[:IS_AUTHOR_OF]->(art)
+WITH art, COLLECT(p.full_name) AS Authors
+RETURN art.title AS Title, Authors
+ORDER BY Title ASC",22,21,false,false
+Find the most popular research topics of the publisher with the most publications.,,"//Find the publishers with the most articles
+MATCH (a:Article)
+WITH a.publisher AS publisher, COUNT(a) AS numArticles
+ORDER BY numArticles DESC
+LIMIT 1
+//For that publisher, find the most popular topics
+MATCH (t:Topic)-[:IS_TOPIC_OF]->(art:Article {publisher: publisher})
+RETURN publisher AS Publisher, t.name AS Topic, COUNT(art) AS Popularity
+ORDER BY Popularity DESC",23,21,false,false
+Aggregation,,,24,,true,false
+Find which Journals are preferred from researchers that are affiliated to 'Yale University'.,,"MATCH
+  (p:Person)-[:IS_AFFILIATED_TO]->(org:Organization {name: 'Yale University'})
+WITH COLLECT(p) AS yaleScholars
+UNWIND yaleScholars AS x
+MATCH (x)-[:IS_AUTHOR_OF]->(art:Article)
+WITH art
+MATCH (art)-[:IS_MEMBER_OF]->(ag:Aggregation)
+RETURN DISTINCT ag.name AS Aggregations
+ORDER BY Aggregations",25,24,false,false
+"Find aggregations related to 'regression' methods, return the methods names and group them by number of articles.",,"MATCH (a:Activity)-[:EMPLOYS]->(m:Method)
+WHERE m.name CONTAINS 'regression'
+WITH m
+MATCH (p:Person)-[:USES_METHOD]->(m)
+WITH m, p
+MATCH (p)-[:IS_AUTHOR_OF]->(art:Article)
+WITH m, art
+MATCH (art)-[:IS_MEMBER_OF]->(ag:Aggregation)
+RETURN
+  m.name AS Methods,
+  COUNT(DISTINCT art) AS NumArticles,
+  COLLECT(DISTINCT ag.name) AS Aggregations
+ORDER BY NumArticles DESC",26,24,false,false
+"Find the top 20 aggregations that are linked to the largest number of topics. For each aggregation, count how many distinct topics are associated with the articles that belong to it, and sort the aggregations from most to fewest topics.",,"MATCH (t:Topic)-[:IS_TOPIC_OF]->(art:Article)
+MATCH (art)-[:IS_MEMBER_OF]->(ag:Aggregation)
+RETURN ag.name AS Aggregation, COUNT(DISTINCT t) AS NumTopics
+ORDER BY NumTopics DESC
+LIMIT 20",27,24,false,false
+Organization,,,28,,true,false
+Display the semantic path that associates 'Aristotle University of Thessaloniki' with the 'coring' method.,,"MATCH path = SHORTESTPATH ((m:Method)-[*]-(org:Organization))
+WHERE m.name = 'coring' AND org.name = 'Aristotle University of Thessaloniki'
+RETURN path",29,28,false,false
+Find all authors that participate in activities employing the method “pollen analysis” and display their name and ORCID number.,,"MATCH (p:Person)-[:PARTICIPATES_IN]->(a:Activity)-[:EMPLOYS]->(m:Method)
+WHERE toLower(m.name) = 'pollen analysis'
+RETURN DISTINCT p.full_name AS Author, p.orcid AS ORCID
+ORDER BY Author",30,28,false,false
+Show a table with scholars and the total number of organizations they are affiliated to.,,"MATCH (p:Person)-[:IS_AFFILIATED_TO]-(org:Organization)
+RETURN p.full_name AS Authors, COUNT(*) AS NumAffiliations
+ORDER BY NumAffiliations DESC",31,28,false,false
