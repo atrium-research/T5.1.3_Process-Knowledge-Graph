@@ -21,7 +21,7 @@
 Run:
 
 ```bash
-neo4j-admin database load neo4j --from-path=/path/to/ATRIUM_jstor_data.dump --overwrite-destination=true
+neo4j-admin database load neo4j --from-path=/path/to/neo4j.dump --overwrite-destination=true
 ```
 
 ## 4. Start Neo4j
@@ -59,7 +59,7 @@ export NEO4J_HOME=/path/to/<NEO4J_HOME>
 Run:
 
 ```bash
-neo4j-admin database load neo4j --from-path=/path/to/ATRIUM_jstor_data.dump --overwrite-destination=true
+neo4j-admin database load neo4j --from-path=/path/to/neo4j.dump --overwrite-destination=true
 ```
 
 ## 4. Start Neo4j
